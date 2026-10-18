@@ -1,1 +1,5 @@
 pyaml
+paho-mqtt
+python-dotenv
+board
+adafruit_dht

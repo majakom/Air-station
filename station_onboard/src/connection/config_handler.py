@@ -7,9 +7,9 @@ import yaml
 from dotenv import load_dotenv
 import os
 
-def ConfigHandler(pathname: Path):
-    def __init__(self):
-        self.pathname = pathname
+class ConfigHandler:
+    def __init__(self, pathname: Path):
+        self._pathname = pathname
         self._setup()
 
     def _setup(self):
@@ -19,11 +19,12 @@ def ConfigHandler(pathname: Path):
         self._load_env()
 
     def _setup_logging(self):
-        self.logger = logging.getLogger(__name__)
+        logging.basicConfig(level=logging.DEBUG)
+        self._logger = logging.getLogger(__name__)
 
     def _load_config(self):
         """
-        Open config file from "res/*.yaml"
+        Open config file from "res/connection/*.yaml"
         """
         try:
             with self.config_path.open("r", encoding="utf-8") as f:
@@ -32,9 +33,9 @@ def ConfigHandler(pathname: Path):
                 self.host = self.mqtt_data.host
                 self.port = self.mqtt_data.port
         except Exception as e:
-            self._logger.error(f"Error during reading config file: {self.config_path}")
+            self._logger.error(f"Error during reading config file: {self.config_path} - {e}")
 
-    def _open_env(self):
+    def _load_env(self):
         """
         Load .env data
         """
@@ -45,9 +46,8 @@ def ConfigHandler(pathname: Path):
             self.username = self.credentials_data.username
             self.password = self.credentials_data.password
         except Exception as e:
-            self._logger.error(f"Error during reading .env file.")
+            self._logger.error(f"Error during reading .env file - {e}")
 
-    @staticmethod
     def _make_root(self):
         root = Path(__file__).resolve().parent
-        self.config_path = root / Path("res") / self.pathname
+        self.config_path = root / Path("res") / Path("connection") / self._pathname

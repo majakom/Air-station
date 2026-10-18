@@ -1,12 +1,11 @@
 from config_handler import ConfigHandler
 
 import logging
-import threading
 from typing import Any
 import paho.mqtt.client as mqtt
 import uuid
 
-class MQTTClient(threading.Thread):
+class MQTTClient():
     def __init__(self, config: ConfigHandler, topics: list[Any]):
         self.config = config
         self.topics = topics
@@ -14,6 +13,7 @@ class MQTTClient(threading.Thread):
 
     def _setup(self):
         self._logging_setup()
+        self.run()
 
     def _logging_setup(self):
         self.logger = logging.getLogger(__name__)
@@ -62,4 +62,8 @@ class MQTTClient(threading.Thread):
         self._logger.info(f"Publishing {message} ---> {topic}")
         self.client.publish(topic, message)
 
-
+    def disconnect(self):
+        """
+        Disconnect client
+        """
+        self.client.disconnect()

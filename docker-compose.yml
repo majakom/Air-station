@@ -1,0 +1,12 @@
+services:
+  mosquitto:
+    image: eclipse-mosquitto:latest
+    container_name: mosquitto
+    restart: unless-stopped
+    ports:
+      - "8883:8883"    # MQTTS (secure)
+    volumes:
+      - ./mosquitto/config:/mosquitto/config
+      - ./mosquitto/certificates:/mosquitto/certificates:ro
+      - ./mosquitto/data:/mosquitto/data
+      - ./mosquitto/log:/mosquitto/log

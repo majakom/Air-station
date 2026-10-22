@@ -4,3 +4,5 @@ from dataclasses import dataclass
 class CredentialsData:
     username: str
     password: str
+
+# TODO: Consider Pydantic

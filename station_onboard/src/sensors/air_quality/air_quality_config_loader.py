@@ -33,4 +33,4 @@ class AirQualityConfigLoader:
     @staticmethod
     def _make_root(self):
         root = Path(__file__).resolve().parent
-        self.config_path = root / Path("res") / Path("sensors") / self._pathname
+        self.config_path = root / Path("res") / Path("sensors") / self._pathname # TODO: move self out of static method

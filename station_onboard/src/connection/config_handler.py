@@ -50,4 +50,4 @@ class ConfigHandler:
 
     def _make_root(self):
         root = Path(__file__).resolve().parent
-        self.config_path = root / Path("res") / Path("connection") / self._pathname
+        self.config_path = root / Path("res") / Path("connection") / self._pathname # TODO: make static

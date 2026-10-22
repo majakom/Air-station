@@ -4,3 +4,5 @@ import board
 @dataclass
 class DHT22Data:
     pin: int = board.D4
+
+# TODO: Consider Pydantic

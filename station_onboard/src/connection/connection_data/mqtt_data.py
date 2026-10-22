@@ -4,3 +4,5 @@ from dataclasses import dataclass
 class MQTTData:
     port: int
     host: str
+
+# TODO: Consider Pydantic

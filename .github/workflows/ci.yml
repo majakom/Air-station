@@ -1,0 +1,139 @@
+name: Docker CI
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  compose:
+    runs-on: ubuntu-latest
+    env:
+      POSTGRES_PASSWORD: ci-only-placeholder
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Create CI Compose environment from example
+        run: |
+          cp .env.example .env
+
+      - name: Validate Compose configuration
+        run: docker compose config --quiet
+
+      - name: Generate temporary Mosquitto TLS credentials
+        run: |
+          mkdir -p \
+            infrastructure/mosquitto/certificates/ca \
+            infrastructure/mosquitto/certificates/server \
+            infrastructure/mosquitto/certificates/client
+          sed 's/<BROKER_LAN_IP>/127.0.0.1/' \
+            infrastructure/mosquitto/certificates/server/server.cnf.example \
+            > infrastructure/mosquitto/certificates/server/server.cnf
+
+          openssl req -x509 -newkey rsa:2048 -nodes -sha256 -days 1 \
+            -keyout infrastructure/mosquitto/certificates/ca/ca.key \
+            -out infrastructure/mosquitto/certificates/ca/ca.crt \
+            -config infrastructure/mosquitto/certificates/ca/ca.cnf \
+            -extensions v3_ca
+          openssl req -new -newkey rsa:2048 -nodes -sha256 \
+            -keyout infrastructure/mosquitto/certificates/server/server.key \
+            -out infrastructure/mosquitto/certificates/server/server.csr \
+            -config infrastructure/mosquitto/certificates/server/server.cnf
+          openssl x509 -req \
+            -in infrastructure/mosquitto/certificates/server/server.csr \
+            -CA infrastructure/mosquitto/certificates/ca/ca.crt \
+            -CAkey infrastructure/mosquitto/certificates/ca/ca.key \
+            -CAcreateserial \
+            -out infrastructure/mosquitto/certificates/server/server.crt \
+            -days 1 -sha256 \
+            -extfile infrastructure/mosquitto/certificates/server/server.cnf \
+            -extensions server_cert
+          openssl req -new -newkey rsa:2048 -nodes -sha256 \
+            -keyout infrastructure/mosquitto/certificates/client/client.key \
+            -out infrastructure/mosquitto/certificates/client/client.csr \
+            -subj "/CN=ci-client"
+          openssl x509 -req \
+            -in infrastructure/mosquitto/certificates/client/client.csr \
+            -CA infrastructure/mosquitto/certificates/ca/ca.crt \
+            -CAkey infrastructure/mosquitto/certificates/ca/ca.key \
+            -CAcreateserial \
+            -out infrastructure/mosquitto/certificates/client/client.crt \
+            -days 1 -sha256 \
+            -extfile infrastructure/mosquitto/certificates/ca/ca.cnf \
+            -extensions client_cert
+          chmod 644 infrastructure/mosquitto/certificates/ca/ca.crt \
+            infrastructure/mosquitto/certificates/ca/ca.key \
+            infrastructure/mosquitto/certificates/server/server.crt \
+            infrastructure/mosquitto/certificates/server/server.key \
+            infrastructure/mosquitto/certificates/client/client.crt \
+            infrastructure/mosquitto/certificates/client/client.key
+          chmod -R a+rwX infrastructure/mosquitto/config \
+            infrastructure/mosquitto/data infrastructure/mosquitto/log
+
+      - name: Create temporary Mosquitto password file
+        run: >-
+          docker compose run --rm --user mosquitto --entrypoint mosquitto_passwd mosquitto
+          -b -c /mosquitto/config/passwd ci-client ci-only-password
+
+      - name: Start all Compose services and wait for readiness
+        run: docker compose up -d --wait
+
+      - name: Verify PostgreSQL accepts a query
+        run: >-
+          docker compose exec -T postgres sh -ec
+          'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT 1;"'
+
+      - name: Install Mosquitto client tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y mosquitto-clients
+
+      - name: Verify Mosquitto TLS publish and subscribe
+        run: |
+          set -euo pipefail
+          published=false
+          for attempt in {1..10}; do
+            if mosquitto_pub \
+              -h 127.0.0.1 -p 8883 \
+              --cafile infrastructure/mosquitto/certificates/ca/ca.crt \
+              --cert infrastructure/mosquitto/certificates/client/client.crt \
+              --key infrastructure/mosquitto/certificates/client/client.key \
+              -u ci-client -P ci-only-password \
+              -r -t ci/health -m ci-smoke-ok; then
+              published=true
+              break
+            fi
+            sleep 1
+          done
+          if [[ "$published" != true ]]; then
+            echo "Could not publish to the Mosquitto broker after 10 attempts." >&2
+            exit 1
+          fi
+          message="$(mosquitto_sub \
+            -h 127.0.0.1 -p 8883 \
+            --cafile infrastructure/mosquitto/certificates/ca/ca.crt \
+            --cert infrastructure/mosquitto/certificates/client/client.crt \
+            --key infrastructure/mosquitto/certificates/client/client.key \
+            -u ci-client -P ci-only-password \
+            -t ci/health -C 1 -W 10)"
+          test "$message" = 'ci-smoke-ok'
+
+      - name: Show service logs on failure
+        if: failure()
+        run: |
+          docker compose logs
+          if [ -f infrastructure/mosquitto/log/mosquitto.log ]; then
+            sudo cat infrastructure/mosquitto/log/mosquitto.log
+          fi
+
+      - name: Stop services and remove CI volume
+        if: always()
+        run: docker compose down --volumes

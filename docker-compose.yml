@@ -1,7 +1,28 @@
 services:
+  postgres:
+    image: postgres:18
+    container_name: smarthome-postgres
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-smarthome_postgres}
+      POSTGRES_USER: ${POSTGRES_USER:-smarthome}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is not set in .env}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
   mosquitto:
     image: eclipse-mosquitto:latest
-    container_name: mosquitto
+    container_name: smarthome-mosquitto
     restart: unless-stopped
     ports:
       - "8883:8883"    # MQTTS (secure)
@@ -10,3 +31,6 @@ services:
       - ./infrastructure/mosquitto/certificates:/mosquitto/certificates:ro
       - ./infrastructure/mosquitto/data:/mosquitto/data
       - ./infrastructure/mosquitto/log:/mosquitto/log
+
+volumes:
+  postgres_data:

@@ -6,7 +6,7 @@ services:
     ports:
       - "8883:8883"    # MQTTS (secure)
     volumes:
-      - ./mosquitto/config:/mosquitto/config
-      - ./mosquitto/certificates:/mosquitto/certificates:ro
-      - ./mosquitto/data:/mosquitto/data
-      - ./mosquitto/log:/mosquitto/log
+      - ./infrastructure/mosquitto/config:/mosquitto/config
+      - ./infrastructure/mosquitto/certificates:/mosquitto/certificates:ro
+      - ./infrastructure/mosquitto/data:/mosquitto/data
+      - ./infrastructure/mosquitto/log:/mosquitto/log

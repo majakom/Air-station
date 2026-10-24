@@ -15,7 +15,7 @@ venv/
 !**/.env.example
 
 # Mosquitto credentials
-mosquitto/config/passwd
+infrastructure/mosquitto/config/passwd
 
 # Certificates and private keys
 *.crt
@@ -24,10 +24,10 @@ mosquitto/config/passwd
 *.srl
 
 # Mosquitto runtime data and logs
-mosquitto/data/*
-!mosquitto/data/.gitkeep
-mosquitto/log/*
-!mosquitto/log/.gitkeep
+infrastructure/mosquitto/data/*
+!infrastructure/mosquitto/data/.gitkeep
+infrastructure/mosquitto/log/*
+!infrastructure/mosquitto/log/.gitkeep
 
 # Machine-specific Mosquitto configuration
-mosquitto/certificates/server/server.cnf
+infrastructure/mosquitto/certificates/server/server.cnf

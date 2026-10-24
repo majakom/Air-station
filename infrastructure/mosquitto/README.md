@@ -2,14 +2,14 @@
 
 ## 1. Configure broker address
 
-Create `mosquitto/certificates/server/server.cnf` from `server.cnf.example` and replace the placeholder in `[alt_names]` with the broker's LAN IP address.
+Create `infrastructure/mosquitto/certificates/server/server.cnf` from `server.cnf.example` and replace the placeholder in `[alt_names]` with the broker's LAN IP address.
 
 ## 2. Generate CA
 
 Run from the project root:
 
 ```powershell
-openssl req -x509 -newkey rsa:4096 -nodes -sha256 -days 3650 -keyout mosquitto/certificates/ca/ca.key -out mosquitto/certificates/ca/ca.crt -config mosquitto/certificates/ca/ca.cnf -extensions v3_ca
+openssl req -x509 -newkey rsa:4096 -nodes -sha256 -days 3650 -keyout infrastructure/mosquitto/certificates/ca/ca.key -out infrastructure/mosquitto/certificates/ca/ca.crt -config infrastructure/mosquitto/certificates/ca/ca.cnf -extensions v3_ca
 ```
 
 ## 3. Generate broker certificate
@@ -17,13 +17,13 @@ openssl req -x509 -newkey rsa:4096 -nodes -sha256 -days 3650 -keyout mosquitto/c
 Generate the broker's private key and certificate signing request (CSR):
 
 ```powershell
-openssl req -new -newkey rsa:2048 -nodes -sha256 -keyout mosquitto/certificates/server/server.key -out mosquitto/certificates/server/server.csr -config mosquitto/certificates/server/server.cnf
+openssl req -new -newkey rsa:2048 -nodes -sha256 -keyout infrastructure/mosquitto/certificates/server/server.key -out infrastructure/mosquitto/certificates/server/server.csr -config infrastructure/mosquitto/certificates/server/server.cnf
 ```
 
 Sign the broker certificate using your CA:
 
 ```powershell
-openssl x509 -req -in mosquitto/certificates/server/server.csr -CA mosquitto/certificates/ca/ca.crt -CAkey mosquitto/certificates/ca/ca.key -CAcreateserial -out mosquitto/certificates/server/server.crt -days 365 -sha256 -extfile mosquitto/certificates/server/server.cnf -extensions server_cert
+openssl x509 -req -in infrastructure/mosquitto/certificates/server/server.csr -CA infrastructure/mosquitto/certificates/ca/ca.crt -CAkey infrastructure/mosquitto/certificates/ca/ca.key -CAcreateserial -out infrastructure/mosquitto/certificates/server/server.crt -days 365 -sha256 -extfile infrastructure/mosquitto/certificates/server/server.cnf -extensions server_cert
 ```
 
 ## 4. Create or update MQTT user
@@ -40,7 +40,7 @@ docker compose run --rm --entrypoint mosquitto_passwd mosquitto -c /mosquitto/co
 
 #### Local mosquitto CLI
 ```powershell
-mosquitto_passwd -c mosquitto/config/passwd <MQTT_USERNAME>-client
+mosquitto_passwd -c infrastructure/mosquitto/config/passwd <MQTT_USERNAME>-client
 ```
 
 ### Add new user or edit existing user in passwd
@@ -54,7 +54,7 @@ docker compose run --rm --entrypoint mosquitto_passwd mosquitto /mosquitto/confi
 #### Local mosquitto CLI
 
 ```powershell
-mosquitto_passwd mosquitto/config/passwd <MQTT_USERNAME>-client
+mosquitto_passwd infrastructure/mosquitto/config/passwd <MQTT_USERNAME>-client
 ```
 
 ## 5. Generate client certificate
@@ -68,7 +68,7 @@ openssl req -new -newkey rsa:2048 -nodes -sha256 -keyout client.key -out client.
 Transfer `client.csr` to the server and sign it:
 
 ```powershell
-openssl x509 -req -in client.csr -CA mosquitto/certificates/ca/ca.crt -CAkey mosquitto/certificates/ca/ca.key -CAcreateserial -out client.crt -days 365 -sha256 -extfile mosquitto/certificates/ca/ca.cnf -extensions client_cert
+openssl x509 -req -in client.csr -CA infrastructure/mosquitto/certificates/ca/ca.crt -CAkey infrastructure/mosquitto/certificates/ca/ca.key -CAcreateserial -out client.crt -days 365 -sha256 -extfile infrastructure/mosquitto/certificates/ca/ca.cnf -extensions client_cert
 ```
 
 Copy `client.crt` and `ca.crt` back to the client. Keep `client.key` on the client device.
@@ -92,7 +92,7 @@ Test TLS client authentication, publishing, and subscribing using the `<MQTT_USE
 The examples below assume that:
 - The broker listens on port `8883`.
 - The client certificate files are available as `client.crt` and `client.key` in project root for Mosquitto CLI and in chosen path for docker CLI.
-- The CA certificate file is available as `ca.crt` in `mosquitto/certificates/ca/` directory.
+- The CA certificate file is available as `ca.crt` in `infrastructure/mosquitto/certificates/ca/` directory.
 - The ACL allows `<MQTT_USERNAME>-client` to read and write `test/topic` or ACL is not turned on.
 
 ### Option A: Local Mosquitto CLI installation
@@ -102,13 +102,13 @@ Run these commands from the project root, with `mosquitto_pub` and `mosquitto_su
 **Terminal 1 — Subscribe:**
 
 ```powershell
-mosquitto_sub -h localhost -p 8883 --cafile mosquitto/certificates/ca/ca.crt --cert client.crt --key client.key -u <MQTT_USERNAME>-client -P "<MQTT_PASSWORD>" -t "test/topic" -v
+mosquitto_sub -h localhost -p 8883 --cafile infrastructure/mosquitto/certificates/ca/ca.crt --cert client.crt --key client.key -u <MQTT_USERNAME>-client -P "<MQTT_PASSWORD>" -t "test/topic" -v
 ```
 
 **Terminal 2 — Publish:**
 
 ```powershell
-mosquitto_pub -h localhost -p 8883 --cafile mosquitto/certificates/ca/ca.crt --cert client.crt --key client.key -u <MQTT_USERNAME>-client -P "<MQTT_PASSWORD>" -t "test/topic" -m "Hello from Mosquitto"
+mosquitto_pub -h localhost -p 8883 --cafile infrastructure/mosquitto/certificates/ca/ca.crt --cert client.crt --key client.key -u <MQTT_USERNAME>-client -P "<MQTT_PASSWORD>" -t "test/topic" -m "Hello from Mosquitto"
 ```
 
 ### Option B: Docker-only CLI tools
@@ -116,7 +116,7 @@ mosquitto_pub -h localhost -p 8883 --cafile mosquitto/certificates/ca/ca.crt --c
 No local Mosquitto installation is required. These commands use the Mosquitto Docker image to run the client utilities.
 
 First, ensure the client files are accessible inside the container. There are two options:
-1. **Use the existing certificates directory.** Place the files in `mosquitto/certificates/client/`. This directory is already mounted into the container through `./mosquitto/certificates:/mosquitto/certificates:ro`.
+1. **Use the existing certificates directory.** Place the files in `infrastructure/mosquitto/certificates/client/`. This directory is already mounted into the container through `./infrastructure/mosquitto/certificates:/mosquitto/certificates:ro`.
 2. **Use a separate directory**. If the client files are stored elsewhere, add a volume mapping to the mosquitto service in docker-compose.yml:
 
 ```yaml

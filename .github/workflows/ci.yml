@@ -1,0 +1,77 @@
+name: Docker CI
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  compose:
+    runs-on: ubuntu-latest
+    env:
+      POSTGRES_PASSWORD: ci-only-placeholder
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Create CI Compose environment from example
+        run: |
+          cp .env.example .env
+
+      - name: Validate Compose configuration
+        run: docker compose config --quiet
+
+      - name: Generate temporary Mosquitto TLS credentials
+        run: |
+          mkdir -p infrastructure/mosquitto/certificates/ca infrastructure/mosquitto/certificates/server
+          sed 's/<BROKER_LAN_IP>/127.0.0.1/' \
+            infrastructure/mosquitto/certificates/server/server.cnf.example \
+            > infrastructure/mosquitto/certificates/server/server.cnf
+
+          openssl req -x509 -newkey rsa:2048 -nodes -sha256 -days 1 \
+            -keyout infrastructure/mosquitto/certificates/ca/ca.key \
+            -out infrastructure/mosquitto/certificates/ca/ca.crt \
+            -config infrastructure/mosquitto/certificates/ca/ca.cnf \
+            -extensions v3_ca
+          openssl req -new -newkey rsa:2048 -nodes -sha256 \
+            -keyout infrastructure/mosquitto/certificates/server/server.key \
+            -out infrastructure/mosquitto/certificates/server/server.csr \
+            -config infrastructure/mosquitto/certificates/server/server.cnf
+          openssl x509 -req \
+            -in infrastructure/mosquitto/certificates/server/server.csr \
+            -CA infrastructure/mosquitto/certificates/ca/ca.crt \
+            -CAkey infrastructure/mosquitto/certificates/ca/ca.key \
+            -CAcreateserial \
+            -out infrastructure/mosquitto/certificates/server/server.crt \
+            -days 1 -sha256 \
+            -extfile infrastructure/mosquitto/certificates/server/server.cnf \
+            -extensions server_cert
+          chmod 644 infrastructure/mosquitto/certificates/ca/ca.crt \
+            infrastructure/mosquitto/certificates/ca/ca.key \
+            infrastructure/mosquitto/certificates/server/server.crt \
+            infrastructure/mosquitto/certificates/server/server.key
+          chmod -R a+rwX infrastructure/mosquitto/config \
+            infrastructure/mosquitto/data infrastructure/mosquitto/log
+
+      - name: Create temporary Mosquitto password file
+        run: >-
+          docker compose run --rm --entrypoint mosquitto_passwd mosquitto
+          -b -c /mosquitto/config/passwd ci-client ci-only-password
+
+      - name: Start all Compose services and wait for readiness
+        run: docker compose up -d --wait
+
+      - name: Show service logs on failure
+        if: failure()
+        run: docker compose logs
+
+      - name: Stop services and remove CI volume
+        if: always()
+        run: docker compose down --volumes

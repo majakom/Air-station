@@ -1,0 +1,21 @@
+
+[ req ]
+prompt = no
+distinguished_name = dn
+default_md = sha256
+x509_extensions = v3_ca
+
+[ dn ]
+CN = SmartHome-CA
+
+[ v3_ca ]
+basicConstraints = critical,CA:TRUE
+keyUsage = critical,keyCertSign,cRLSign
+subjectKeyIdentifier = hash
+
+[ client_cert ]
+basicConstraints = critical,CA:FALSE
+keyUsage = critical,digitalSignature
+extendedKeyUsage = clientAuth
+subjectKeyIdentifier = hash
+authorityKeyIdentifier = keyid,issuer

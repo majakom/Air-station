@@ -1,2 +1,33 @@
-**/.env
+# Python
+__pycache__/
+.venv/
+venv/
+
+# IDE and OS files
+.vscode/
 .idea/
+
+# Environment variables and secrets
+.env
+.env.*
+**/.env
+!.env.example
+!**/.env.example
+
+# Mosquitto credentials
+infrastructure/mosquitto/config/passwd
+
+# Certificates and private keys
+*.crt
+*.key
+*.csr
+*.srl
+
+# Mosquitto runtime data and logs
+infrastructure/mosquitto/data/*
+!infrastructure/mosquitto/data/.gitkeep
+infrastructure/mosquitto/log/*
+!infrastructure/mosquitto/log/.gitkeep
+
+# Machine-specific Mosquitto configuration
+infrastructure/mosquitto/certificates/server/server.cnf
